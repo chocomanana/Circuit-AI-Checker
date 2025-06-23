@@ -5,127 +5,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</title>
   <style>
-    /* Reset and box-sizing */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     html, body {
       width: 100%; height: 100%; overflow: hidden;
-      font-family: sans-serif;
-      display: flex; flex-direction: column;
-      background: #fff;
-      /* Safe area for iOS */
-      padding-bottom: env(safe-area-inset-bottom);
+      font-family: sans-serif; display: flex; flex-direction: column;
+      background: #fff; padding-bottom: env(safe-area-inset-bottom);
     }
-
-    /* Header with responsive font-size */
     header {
-      flex-shrink: 0;
-      width: 100%;
-      padding: 8px;
-      background: #0077cc;
-      color: #fff;
-      text-align: center;
+      flex-shrink: 0; width: 100%; padding: 8px;
+      background: #0077cc; color: #fff; text-align: center;
       font-size: clamp(16px, 5vw, 20px);
     }
-
-    /* Main container for camera */
-    #webcam-container {
-      flex: 1;
-      position: relative;
-      min-height: 0; /* allow flex to shrink */
-    }
-
-    /* Video fills container */
-    video {
-      width: 100%; height: 100%;
-      object-fit: cover;
-    }
-
-    /* Prediction label overlay */
+    #webcam-container { flex: 1; position: relative; min-height: 0; }
+    video { width: 100%; height: 100%; object-fit: cover; }
     #label-container {
-      position: absolute;
-      top: env(safe-area-inset-top);
-      left: 0; width: 100%;
-      padding: 4px;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      text-align: center;
-      font-size: 14px;
-      z-index: 2;
+      position: absolute; top: env(safe-area-inset-top); left: 0; width: 100%;
+      padding: 4px; background: rgba(0,0,0,0.6); color: #fff;
+      text-align: center; font-size: 14px; z-index: 2;
     }
-
-    /* Thumbnails gallery */
     #gallery {
-      position: absolute;
-      bottom: calc(48px + env(safe-area-inset-bottom));
-      right: 8px;
-      display: flex; flex-wrap: wrap; gap: 6px;
-      max-height: 25vh;
-      overflow-y: auto;
-      padding: 4px;
+      position: absolute; bottom: calc(48px + env(safe-area-inset-bottom)); right: 8px;
+      display: flex; flex-wrap: wrap; gap: 6px; max-height: 25vh;
+      overflow-y: auto; padding: 4px;
     }
-
     .item {
-      display: flex; flex-direction: column;
-      align-items: center;
-      background: rgba(255,255,255,0.9);
-      padding: 4px;
-      border-radius: 4px;
+      display: flex; flex-direction: column; align-items: center;
+      background: rgba(255,255,255,0.9); padding: 4px; border-radius: 4px;
       width: 56px;
     }
-
-    .item img {
-      width: 100%; height: auto;
-      border: 1px solid #666;
-      border-radius: 2px;
-    }
-
-    .item p {
-      margin-top: 2px;
-      font-size: 12px;
-      color: #333;
-      text-align: center;
+    .item img { width: 100%; height: auto; border: 1px solid #666; border-radius: 2px; }
+    .item p { margin-top: 2px; font-size: 12px; color: #333; text-align: center; line-height: 1.2; }
+    .item small {
+      margin-top: 2px; font-size: 10px; color: #555; text-align: center;
       line-height: 1.2;
     }
-
-    /* Fixed controls at bottom */
     #controls {
-      flex-shrink: 0;
-      position: fixed;
-      bottom: env(safe-area-inset-bottom);
-      left: 0; width: 100%;
-      display: flex; justify-content: space-around;
-      background: #f0f0f0;
-      padding: 4px 0;
-      z-index: 2;
+      flex-shrink: 0; position: fixed; bottom: env(safe-area-inset-bottom);
+      left: 0; width: 100%; display: flex; justify-content: space-around;
+      background: #f0f0f0; padding: 4px 0; z-index: 2;
     }
-
-    /* Control buttons */
     #controls button {
-      flex: 1; margin: 0 4px;
-      padding: 6px 0;
-      font-size: 14px;
-      background: #0077cc;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
+      flex: 1; margin: 0 4px; padding: 6px 0;
+      font-size: 14px; background: #0077cc; color: #fff;
+      border: none; border-radius: 4px;
     }
-
-    #controls button:active {
-      opacity: 0.8;
-    }
+    #controls button:active { opacity: 0.8; }
   </style>
 </head>
 <body>
-
   <header>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</header>
-
   <div id="webcam-container">
     <div id="label-container">โหลดโมเดล...</div>
     <video id="webcam" autoplay muted playsinline></video>
     <div id="gallery"></div>
   </div>
-
   <div id="controls">
     <button id="btn-start">Start</button>
     <button id="btn-stop">Stop</button>
@@ -133,7 +66,6 @@
     <button id="btn-clear">Clear</button>
     <button id="btn-download">Download</button>
   </div>
-
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   <script>
@@ -144,6 +76,7 @@
     const labelContainer = document.getElementById("label-container");
     let stream, lastDataURL = null;
 
+    // โหลดโมเดล
     async function loadModel() {
       labelContainer.innerText = "กำลังโหลดโมเดล...";
       model = await tmImage.load(URL + "model.json", URL + "metadata.json");
@@ -151,10 +84,14 @@
       labelContainer.innerText = "พร้อมใช้งาน";
     }
 
+    // เริ่มกล้องหลัง
     async function startCamera() {
       if (stream) return;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } }, audio: false });
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: { exact: "environment" } }, 
+          audio: false 
+        });
         video.srcObject = stream;
         await video.play();
       } catch (err) {
@@ -163,6 +100,7 @@
       }
     }
 
+    // หยุดกล้อง
     function stopCamera() {
       if (!stream) return;
       stream.getTracks().forEach(t => t.stop());
@@ -170,30 +108,44 @@
       video.srcObject = null;
     }
 
+    // ถ่ายภาพและทำนาย
     async function captureAndPredict() {
       if (!stream) return;
       const tmp = document.createElement("canvas");
-      tmp.width = video.videoWidth;
-      tmp.height = video.videoHeight;
+      tmp.width = video.videoWidth; tmp.height = video.videoHeight;
       tmp.getContext("2d").drawImage(video, 0, 0);
 
       const prediction = await model.predict(tmp);
+      const stats = prediction
+        .map(p => `${p.className}: ${(p.probability*100).toFixed(1)}%`)
+        .join('\n');
       let best = prediction[0];
       prediction.forEach(p => { if (p.probability > best.probability) best = p; });
-      const labelText = best.className;
 
       const item = document.createElement("div"); item.className = "item";
       const img = document.createElement("img"); img.src = tmp.toDataURL("image/png");
-      const caption = document.createElement("p"); caption.innerText = labelText;
-      item.append(img, caption);
+      const caption = document.createElement("p"); caption.innerText = best.className;
+      const details = document.createElement("small"); details.innerText = stats;
+      item.append(img, caption, details);
       gallery.appendChild(item);
 
-      labelContainer.innerText = `${labelText} : ${(best.probability*100).toFixed(1)}%`;
+      labelContainer.innerText = `${best.className} : ${(best.probability*100).toFixed(1)}%`;
       lastDataURL = tmp.toDataURL("image/png");
     }
 
-    function clearAll() { gallery.innerHTML = ""; labelContainer.innerText = "พร้อมใช้งาน"; lastDataURL = null; }
-    function downloadLast() { if (!lastDataURL) return alert("ยังไม่มีภาพให้ดาวน์โหลด"); const a = document.createElement("a"); a.href = lastDataURL; a.download = `snapshot_${Date.now()}.png`; a.click(); }
+    function clearAll() {
+      gallery.innerHTML = "";
+      labelContainer.innerText = "พร้อมใช้งาน";
+      lastDataURL = null;
+    }
+
+    function downloadLast() {
+      if (!lastDataURL) return alert("ยังไม่มีภาพให้ดาวน์โหลด");
+      const a = document.createElement("a");
+      a.href = lastDataURL;
+      a.download = `snapshot_${Date.now()}.png`;
+      a.click();
+    }
 
     document.getElementById("btn-start").addEventListener("click", startCamera);
     document.getElementById("btn-stop").addEventListener("click", stopCamera);
