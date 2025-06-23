@@ -2,75 +2,123 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</title>
   <style>
+    /* Reset box sizing */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
     html, body {
-      margin: 0; padding: 0;
-      width: 100vw; height: 100vh;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
-      display: flex; flex-direction: column;
       font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      /* Respect iOS safe area */
+      padding-bottom: env(safe-area-inset-bottom);
     }
     header {
-      padding: 8px;
+      padding: 12px;
       text-align: center;
       background: #0077cc;
       color: #fff;
+      font-size: 18px;
+      flex-shrink: 0;
     }
     #webcam-container {
-      flex: 1; position: relative;
+      flex: 1;
+      position: relative;
+      min-height: 0; /* allow flex children to shrink */
     }
     video {
-      width: 100%; height: 100%;
+      width: 100%;
+      height: 100%;
       object-fit: cover;
     }
     #gallery {
       position: absolute;
-      bottom: 60px; right: 8px;
-      max-height: 40vh; overflow-y: auto;
-      display: flex; flex-wrap: wrap;
-      gap: 8px;
+      bottom: calc(56px + env(safe-area-inset-bottom));
+      right: 8px;
+      max-height: 30vh;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      overflow-y: auto;
+      padding: 4px;
     }
     .item {
-      display: flex; flex-direction: column;
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      background: rgba(255,255,255,0.8);
-      padding: 4px; border-radius: 4px;
+      background: rgba(255,255,255,0.9);
+      padding: 4px;
+      border-radius: 4px;
+      width: 60px;
     }
     .item img {
-      width: 80px; height: 80px;
-      object-fit: cover;
-      border: 2px solid #666; border-radius: 2px;
+      width: 100%;
+      height: auto;
+      border: 1px solid #666;
+      border-radius: 2px;
     }
     .item p {
       margin: 4px 0 0;
-      font-size: 14px; color: #333;
+      font-size: 12px;
+      color: #333;
+      text-align: center;
+      line-height: 1.2;
     }
     #controls {
-      display: flex; justify-content: space-around;
-      padding: 8px; background: #f0f0f0;
+      position: fixed;
+      bottom: env(safe-area-inset-bottom);
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-around;
+      background: #f0f0f0;
+      padding: 6px 0;
+      flex-shrink: 0;
     }
     #controls button {
-      flex: 1; margin: 0 4px;
-      padding: 8px; font-size: 16px;
+      flex: 1;
+      margin: 0 4px;
+      padding: 10px 0;
+      font-size: 14px;
+      border: none;
+      border-radius: 4px;
+      background: #0077cc;
+      color: #fff;
+    }
+    #controls button:active {
+      opacity: 0.7;
     }
     #label-container {
-      padding: 4px;
+      position: absolute;
+      top: env(safe-area-inset-top);
+      left: 0;
+      width: 100%;
+      padding: 6px;
       text-align: center;
       background: rgba(0,0,0,0.6);
       color: #fff;
-      font-size: 18px;
+      font-size: 16px;
+      z-index: 2;
     }
   </style>
 </head>
 <body>
 
   <header>
-    <h1>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</h1>
+    ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ
   </header>
 
   <div id="webcam-container">
+    <div id="label-container">โหลดโมเดล...</div>
     <video id="webcam" autoplay muted playsinline></video>
     <div id="gallery"></div>
   </div>
@@ -79,25 +127,23 @@
     <button id="btn-start">Start</button>
     <button id="btn-stop">Stop</button>
     <button id="btn-capture">Capture</button>
-    <button id="btn-clear">Clear all</button>
+    <button id="btn-clear">Clear</button>
     <button id="btn-download">Download</button>
   </div>
 
-  <div id="label-container">โหลดโมเดล...</div>
-
-  <!-- libs -->
+  <!-- TensorFlow.js และ Teachable Machine SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
   <script>
-    const URL = "./mymodel/";
+    const URL = "./mymodel/"; // ชี้ไปที่โฟลเดอร์บน GitHub หรือ localhost
     let model, maxPredictions;
     const video = document.getElementById("webcam");
     const gallery = document.getElementById("gallery");
     const labelContainer = document.getElementById("label-container");
     let stream, lastDataURL = null;
 
-    // โหลดโมเดล
+    // โหลดโมเดลจาก Teachable Machine
     async function loadModel() {
       labelContainer.innerText = "กำลังโหลดโมเดล...";
       model = await tmImage.load(URL + "model.json", URL + "metadata.json");
@@ -105,15 +151,17 @@
       labelContainer.innerText = "พร้อมใช้งาน";
     }
 
-    // สตาร์ทกล้องหลัง โดยให้ browser เลือกความละเอียดสูงสุด
+    // เริ่มกล้องหลัง (environment) ให้เบราว์เซอร์เลือกความละเอียดสูงสุด
     async function startCamera() {
       if (stream) return;
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { exact: "environment" } },
-        audio: false
-      });
-      video.srcObject = stream;
-      await video.play();
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } }, audio: false });
+        video.srcObject = stream;
+        await video.play();
+      } catch (err) {
+        console.error(err);
+        labelContainer.innerText = "ไม่สามารถเข้าถึงกล้องได้";
+      }
     }
 
     // หยุดกล้อง
@@ -124,7 +172,7 @@
       video.srcObject = null;
     }
 
-    // ถ่ายภาพ–พรีวิว–predict แล้วแสดงใน gallery
+    // ถ่ายภาพ + พรีวิว + ทำนาย
     async function captureAndPredict() {
       if (!stream) return;
       const tmp = document.createElement("canvas");
@@ -132,36 +180,31 @@
       tmp.height = video.videoHeight;
       tmp.getContext("2d").drawImage(video, 0, 0);
 
-      // รันทำนาย
       const prediction = await model.predict(tmp);
       let best = prediction[0];
       prediction.forEach(p => { if (p.probability > best.probability) best = p; });
-      const labelText = best.className; // "ต่อถูก" หรือ "ต่อผิด"
+      const labelText = best.className;
 
-      // สร้าง item ใน gallery
+      // สร้าง gallery item
       const item = document.createElement("div");
       item.classList.add("item");
-
-      const img = document.createElement("img");
-      img.src = tmp.toDataURL("image/png");
-      item.appendChild(img);
-
-      const caption = document.createElement("p");
-      caption.innerText = labelText;
-      item.appendChild(caption);
-
+      const img = document.createElement("img"); img.src = tmp.toDataURL("image/png");
+      const caption = document.createElement("p"); caption.innerText = labelText;
+      item.append(img, caption);
       gallery.appendChild(item);
 
       labelContainer.innerText = `${labelText} : ${(best.probability*100).toFixed(1)}%`;
       lastDataURL = tmp.toDataURL("image/png");
     }
 
+    // ล้าง gallery
     function clearAll() {
       gallery.innerHTML = "";
       labelContainer.innerText = "พร้อมใช้งาน";
       lastDataURL = null;
     }
 
+    // ดาวน์โหลดภาพล่าสุด
     function downloadLast() {
       if (!lastDataURL) return alert("ยังไม่มีภาพให้ดาวน์โหลด");
       const a = document.createElement("a");
@@ -170,14 +213,14 @@
       a.click();
     }
 
-    // ผูกปุ่ม
+    // ผูกปุ่มควบคุม
     document.getElementById("btn-start").addEventListener("click", startCamera);
     document.getElementById("btn-stop").addEventListener("click", stopCamera);
     document.getElementById("btn-capture").addEventListener("click", captureAndPredict);
     document.getElementById("btn-clear").addEventListener("click", clearAll);
     document.getElementById("btn-download").addEventListener("click", downloadLast);
 
-    // โหลดโมเดลอัตโนมัติเมื่อเข้าเพจ
+    // โหลดโมเดลตอนเปิดเพจ
     loadModel();
   </script>
 </body>
