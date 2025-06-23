@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      width: 100vw; height: 100vh;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      font-family: sans-serif;
+    }
+    header {
+      padding: 8px;
+      text-align: center;
+      background: #0077cc;
+      color: #fff;
+    }
+    #webcam-container {
+      flex: 1; position: relative;
+    }
+    video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    #gallery {
+      position: absolute;
+      bottom: 60px; right: 8px;
+      max-height: 40vh; overflow-y: auto;
+      display: flex; flex-wrap: wrap;
+      gap: 8px;
+    }
+    .item {
+      display: flex; flex-direction: column;
+      align-items: center;
+      background: rgba(255,255,255,0.8);
+      padding: 4px; border-radius: 4px;
+    }
+    .item img {
+      width: 80px; height: 80px;
+      object-fit: cover;
+      border: 2px solid #666; border-radius: 2px;
+    }
+    .item p {
+      margin: 4px 0 0;
+      font-size: 14px; color: #333;
+    }
+    #controls {
+      display: flex; justify-content: space-around;
+      padding: 8px; background: #f0f0f0;
+    }
+    #controls button {
+      flex: 1; margin: 0 4px;
+      padding: 8px; font-size: 16px;
+    }
+    #label-container {
+      padding: 4px;
+      text-align: center;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</h1>
+  </header>
+
+  <div id="webcam-container">
+    <video id="webcam" autoplay muted playsinline></video>
+    <div id="gallery"></div>
+  </div>
+
+  <div id="controls">
+    <button id="btn-start">Start</button>
+    <button id="btn-stop">Stop</button>
+    <button id="btn-capture">Capture</button>
+    <button id="btn-clear">Clear all</button>
+    <button id="btn-download">Download</button>
+  </div>
+
+  <div id="label-container">โหลดโมเดล...</div>
+
+  <!-- libs -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+  <script>
+    const URL = "./my_model/";
+    let model, maxPredictions;
+    const video = document.getElementById("webcam");
+    const gallery = document.getElementById("gallery");
+    const labelContainer = document.getElementById("label-container");
+    let stream, lastDataURL = null;
+
+    // โหลดโมเดล
+    async function loadModel() {
+      labelContainer.innerText = "กำลังโหลดโมเดล...";
+      model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+      maxPredictions = model.getTotalClasses();
+      labelContainer.innerText = "พร้อมใช้งาน";
+    }
+
+    // สตาร์ทกล้องหลัง โดยให้ browser เลือกความละเอียดสูงสุด
+    async function startCamera() {
+      if (stream) return;
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { exact: "environment" } },
+        audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+    }
+
+    // หยุดกล้อง
+    function stopCamera() {
+      if (!stream) return;
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+      video.srcObject = null;
+    }
+
+    // ถ่ายภาพ–พรีวิว–predict แล้วแสดงใน gallery
+    async function captureAndPredict() {
+      if (!stream) return;
+      const tmp = document.createElement("canvas");
+      tmp.width = video.videoWidth;
+      tmp.height = video.videoHeight;
+      tmp.getContext("2d").drawImage(video, 0, 0);
+
+      // รันทำนาย
+      const prediction = await model.predict(tmp);
+      let best = prediction[0];
+      prediction.forEach(p => { if (p.probability > best.probability) best = p; });
+      const labelText = best.className; // "ต่อถูก" หรือ "ต่อผิด"
+
+      // สร้าง item ใน gallery
+      const item = document.createElement("div");
+      item.classList.add("item");
+
+      const img = document.createElement("img");
+      img.src = tmp.toDataURL("image/png");
+      item.appendChild(img);
+
+      const caption = document.createElement("p");
+      caption.innerText = labelText;
+      item.appendChild(caption);
+
+      gallery.appendChild(item);
+
+      labelContainer.innerText = `${labelText} : ${(best.probability*100).toFixed(1)}%`;
+      lastDataURL = tmp.toDataURL("image/png");
+    }
+
+    function clearAll() {
+      gallery.innerHTML = "";
+      labelContainer.innerText = "พร้อมใช้งาน";
+      lastDataURL = null;
+    }
+
+    function downloadLast() {
+      if (!lastDataURL) return alert("ยังไม่มีภาพให้ดาวน์โหลด");
+      const a = document.createElement("a");
+      a.href = lastDataURL;
+      a.download = `snapshot_${Date.now()}.png`;
+      a.click();
+    }
+
+    // ผูกปุ่ม
+    document.getElementById("btn-start").addEventListener("click", startCamera);
+    document.getElementById("btn-stop").addEventListener("click", stopCamera);
+    document.getElementById("btn-capture").addEventListener("click", captureAndPredict);
+    document.getElementById("btn-clear").addEventListener("click", clearAll);
+    document.getElementById("btn-download").addEventListener("click", downloadLast);
+
+    // โหลดโมเดลอัตโนมัติเมื่อเข้าเพจ
+    loadModel();
+  </script>
+</body>
+</html>
