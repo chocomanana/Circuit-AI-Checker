@@ -1,31 +1,109 @@
-<!-- (1) meta viewport ให้เต็มจอมือถือ -->
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</title>
+  <style>
+    /* Reset box sizing and margins */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      display: flex; flex-direction: column;
+      font-family: sans-serif;
+      background: #fff;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    header {
+      flex-shrink: 0;
+      width: 100%; padding: 8px;
+      background: #0077cc; color: #fff;
+      text-align: center;
+      font-size: clamp(16px, 5vw, 20px);
+    }
+    #webcam-container {
+      flex: 1; position: relative; min-height: 0;
+    }
+    /* tmImage.Webcam injects a canvas here */
+    #webcam-container canvas {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    #label-container {
+      position: absolute;
+      top: env(safe-area-inset-top); left: 0; width: 100%;
+      padding: 4px;
+      background: rgba(0,0,0,0.6); color: #fff;
+      text-align: center; font-size: 14px;
+      z-index: 2;
+    }
+    #controls {
+      flex-shrink: 0;
+      position: fixed; bottom: env(safe-area-inset-bottom); left: 0;
+      width: 100%; display: flex; justify-content: space-around;
+      background: #f0f0f0; padding: 6px 0; z-index: 2;
+    }
+    #controls button {
+      flex: 1; margin: 0 4px; padding: 8px 0;
+      font-size: 14px; background: #0077cc; color: #fff;
+      border: none; border-radius: 4px;
+    }
+    #controls button:active { opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <header>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</header>
+  <div id="label-container">โหลดโมเดล...</div>
+  <div id="webcam-container"></div>
+  <div id="controls">
+    <button id="btn-start">Start</button>
+    <button id="btn-stop">Stop</button>
+  </div>
 
-<!-- (2) title และ header ชื่อระบบ -->
-<title>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</title>
-...
-<header>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</header>
+  <!-- Load TensorFlow.js and Teachable Machine -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <script>
+    const URL = './mymodel/';
+    let model, webcam;
 
-<!-- (3) CSS responsive เบื้องต้น -->
-<style>
-  html, body {
-    margin:0; padding:0;
-    width:100%; height:100%;
-    display:flex; flex-direction:column;
-  }
-  header {
-    padding:8px; text-align:center;
-    background:#0077cc; color:#fff;
-    font-size:clamp(16px,5vw,20px);
-  }
-  #webcam-container { flex:1; position:relative; }
-  #webcam-container canvas {
-    width:100%; height:100%; object-fit:cover;
-  }
-  /* controls ด้านล่าง fixed */
-  #controls {
-    position:fixed; bottom:0; left:0; width:100%;
-    display:flex; background:#f0f0f0;
-  }
-  #controls button { flex:1; padding:8px; }
-</style>
+    // Initialize model and webcam
+    async function init() {
+      const labelContainer = document.getElementById('label-container');
+      labelContainer.innerText = 'กำลังโหลดโมเดล...';
+      model = await tmImage.load(URL + 'model.json', URL + 'metadata.json');
+      labelContainer.innerText = 'พร้อมใช้งาน';
+
+      webcam = new tmImage.Webcam(window.innerWidth, window.innerHeight, true);
+      await webcam.setup({ facingMode: { ideal: 'environment' } });
+      await webcam.play();
+      document.getElementById('webcam-container').appendChild(webcam.canvas);
+
+      window.requestAnimationFrame(loop);
+    }
+
+    // Main loop: update and predict
+    async function loop() {
+      webcam.update();
+      const prediction = await model.predict(webcam.canvas);
+      let best = prediction[0];
+      prediction.forEach(p => { if (p.probability > best.probability) best = p; });
+      const percent = (best.probability * 100).toFixed(1);
+      document.getElementById('label-container').innerText = `${best.className}: ${percent}%`;
+      window.requestAnimationFrame(loop);
+    }
+
+    // Stop webcam
+    function stopCamera() {
+      if (webcam) {
+        webcam.stop();
+        webcam.canvas.remove();
+        webcam = null;
+        document.getElementById('label-container').innerText = 'หยุดกล้อง';
+      }
+    }
+
+    document.getElementById('btn-start').addEventListener('click', init);
+    document.getElementById('btn-stop').addEventListener('click', stopCamera);
+  </script>
+</body>
+</html>
