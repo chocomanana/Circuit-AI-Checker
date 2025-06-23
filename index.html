@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="th">
+<!DOCTYPE html><html lang="th">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</title>
   <style>
-    /* Reset box sizing and margins */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: 100%; height: 100%; overflow: hidden;
@@ -24,7 +22,6 @@
     #webcam-container {
       flex: 1; position: relative; min-height: 0;
     }
-    /* tmImage.Webcam injects a canvas here */
     #webcam-container canvas {
       width: 100%; height: 100%; object-fit: cover;
     }
@@ -58,52 +55,47 @@
     <button id="btn-start">Start</button>
     <button id="btn-stop">Stop</button>
   </div>
-
-  <!-- Load TensorFlow.js and Teachable Machine -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   <script>
     const URL = './mymodel/';
-    let model, webcam;
+    let model, webcam;async function init() {
+  const label = document.getElementById('label-container');
+  label.innerText = 'กำลังโหลดโมเดล...';
+  model = await tmImage.load(URL + 'model.json', URL + 'metadata.json');
+  label.innerText = 'พร้อมใช้งาน';
 
-    // Initialize model and webcam
-    async function init() {
-      const labelContainer = document.getElementById('label-container');
-      labelContainer.innerText = 'กำลังโหลดโมเดล...';
-      model = await tmImage.load(URL + 'model.json', URL + 'metadata.json');
-      labelContainer.innerText = 'พร้อมใช้งาน';
+  // ใช้กล้องหลัง, ไม่กลับซ้ายขวา (flip=false)
+  webcam = new tmImage.Webcam(window.innerWidth, window.innerHeight, false);
+  await webcam.setup({ facingMode: { ideal: 'environment' } });
+  await webcam.play();
+  document.getElementById('webcam-container').appendChild(webcam.canvas);
 
-      webcam = new tmImage.Webcam(window.innerWidth, window.innerHeight, true);
-      await webcam.setup({ facingMode: { ideal: 'environment' } });
-      await webcam.play();
-      document.getElementById('webcam-container').appendChild(webcam.canvas);
+  window.requestAnimationFrame(loop);
+}
 
-      window.requestAnimationFrame(loop);
-    }
+async function loop() {
+  webcam.update();
+  const prediction = await model.predict(webcam.canvas);
+  let best = prediction[0];
+  prediction.forEach(p => { if (p.probability > best.probability) best = p; });
+  const percent = (best.probability * 100).toFixed(1);
+  document.getElementById('label-container').innerText = `${best.className}: ${percent}%`;
+  window.requestAnimationFrame(loop);
+}
 
-    // Main loop: update and predict
-    async function loop() {
-      webcam.update();
-      const prediction = await model.predict(webcam.canvas);
-      let best = prediction[0];
-      prediction.forEach(p => { if (p.probability > best.probability) best = p; });
-      const percent = (best.probability * 100).toFixed(1);
-      document.getElementById('label-container').innerText = `${best.className}: ${percent}%`;
-      window.requestAnimationFrame(loop);
-    }
+function stopCamera() {
+  if (webcam) {
+    webcam.stop();
+    webcam.canvas.remove();
+    webcam = null;
+    document.getElementById('label-container').innerText = 'หยุดกล้อง';
+  }
+}
 
-    // Stop webcam
-    function stopCamera() {
-      if (webcam) {
-        webcam.stop();
-        webcam.canvas.remove();
-        webcam = null;
-        document.getElementById('label-container').innerText = 'หยุดกล้อง';
-      }
-    }
+document.getElementById('btn-start').addEventListener('click', init);
+document.getElementById('btn-stop').addEventListener('click', stopCamera);
 
-    document.getElementById('btn-start').addEventListener('click', init);
-    document.getElementById('btn-stop').addEventListener('click', stopCamera);
   </script>
 </body>
 </html>
