@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="th">
+<!DOCTYPE html>
+<html lang="th">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -61,7 +62,11 @@
   <div id="controls">
     <button id="btn-start">Start</button>
     <button id="btn-stop">Stop</button>
-  </div>  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>  <script>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <script>
     const URL = './mymodel/';
     let model, webcam;
 
@@ -102,5 +107,6 @@
 
     document.getElementById('btn-start').addEventListener('click', init);
     document.getElementById('btn-stop').addEventListener('click', stopCamera);
-  </script></body>
+  </script>
+</body>
 </html>
