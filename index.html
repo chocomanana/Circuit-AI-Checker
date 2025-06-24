@@ -9,16 +9,13 @@
     html, body {
       width: 100%; height: 100%; overflow: hidden;
       display: flex; flex-direction: column;
-      font-family: sans-serif;
-      background: #fff;
+      font-family: sans-serif; background: #fff;
       padding-bottom: env(safe-area-inset-bottom);
     }
     header {
-      flex-shrink: 0;
-      width: 100%; padding: 8px;
+      flex-shrink: 0; width: 100%; padding: 8px;
       background: #0077cc; color: #fff;
-      text-align: center;
-      font-size: clamp(16px, 5vw, 20px);
+      text-align: center; font-size: clamp(16px,5vw,20px);
     }
     #webcam-container {
       flex: 1; position: relative; min-height: 0;
@@ -26,24 +23,39 @@
     #webcam-container canvas {
       width: 100%; height: 100%; object-fit: cover;
     }
-    /* Overlay for individual percentages */
-    #percentages {
-      position: fixed;
-      bottom: calc(48px + env(safe-area-inset-bottom));
-      left: 0;
-      width: 100%;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      text-align: center;
-      font-size: 14px;
-      padding: 4px 0;
+    /* Statistics bars overlay */
+    #stats {
+      position: absolute;
+      bottom: calc(60px + env(safe-area-inset-bottom));
+      left: 0; width: 100%; padding: 8px 0;
+      background: rgba(255,255,255,0.8);
       z-index: 2;
     }
-    /* Controls fixed at bottom */
+    .bar-container {
+      display: flex; align-items: center;
+      padding: 4px 8px;
+    }
+    .bar-label {
+      width: 24%; font-size: 14px; color: #333;
+    }
+    .bar {
+      flex: 1; height: 12px; background: #eee;
+      border-radius: 6px; overflow: hidden; margin: 0 8px;
+    }
+    .bar-fill.correct {
+      background: #ffc107; width: 0; height: 100%;
+    }
+    .bar-fill.incorrect {
+      background: #e91e63; width: 0; height: 100%;
+    }
+    .bar-value {
+      width: 40px; font-size: 12px; color: #333;
+      text-align: right;
+    }
     #controls {
       flex-shrink: 0;
-      position: fixed; bottom: 0; left: 0;
-      width: 100%; display: flex; justify-content: space-around;
+      position: fixed; bottom: 0; left: 0; width: 100%;
+      display: flex; justify-content: space-around;
       background: #f0f0f0; padding: 6px 0; z-index: 3;
     }
     #controls button {
@@ -56,11 +68,20 @@
 </head>
 <body>
   <header>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</header>
+
   <div id="webcam-container"></div>
 
-  <div id="percentages">
-    <div id="correct-percent">ต่อวงจรถูก : --%<div>
-    <div id="incorrect-percent">ต่อวงจรผิด : --%<div>
+  <div id="stats">
+    <div class="bar-container">
+      <div class="bar-label">ต่อวงจรถูก</div>
+      <div class="bar"><div class="bar-fill correct" id="bar-correct"></div></div>
+      <div class="bar-value" id="value-correct">--%</div>
+    </div>
+    <div class="bar-container">
+      <div class="bar-label">ต่อวงจรผิด</div>
+      <div class="bar"><div class="bar-fill incorrect" id="bar-incorrect"></div></div>
+      <div class="bar-value" id="value-incorrect">--%</div>
+    </div>
   </div>
 
   <div id="controls">
@@ -68,7 +89,6 @@
     <button id="btn-stop">Stop</button>
   </div>
 
-  <!-- Load libraries -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   <script>
@@ -76,25 +96,28 @@
     let model, webcam;
 
     async function init() {
+      // โหลดโมเดล
+      model = await tmImage.load(URL + 'model.json', URL + 'metadata.json');
+      // ตั้งกล้องหลัง ไม่ mirror
       webcam = new tmImage.Webcam(window.innerWidth, window.innerHeight, false);
       await webcam.setup({ facingMode: { ideal: 'environment' } });
       await webcam.play();
       document.getElementById('webcam-container').appendChild(webcam.canvas);
-
-      model = await tmImage.load(URL + 'model.json', URL + 'metadata.json');
+      // เริ่ม loop
       window.requestAnimationFrame(loop);
     }
 
     async function loop() {
       webcam.update();
       const prediction = await model.predict(webcam.canvas);
-      // Update both percentages
-      const correct = prediction.find(p => p.className === 'ต่อวงจรถูก');
-      const incorrect = prediction.find(p => p.className === 'ต่อวงจรผิด');
-      document.getElementById('correct-percent').innerText =
-        `ต่อวงจรถูก : ${(correct.probability * 100).toFixed(1)}%`;
-      document.getElementById('incorrect-percent').innerText =
-        `ต่อวงจรผิด : ${(incorrect.probability * 100).toFixed(1)}%`;
+      const correct = prediction.find(p => p.className === 'ต่อวงจรถูก') || { probability: 0 };
+      const incorrect = prediction.find(p => p.className === 'ต่อวงจรผิด') || { probability: 0 };
+      const pc = (correct.probability * 100).toFixed(1) + '%';
+      const pi = (incorrect.probability * 100).toFixed(1) + '%';
+      document.getElementById('bar-correct').style.width = pc;
+      document.getElementById('value-correct').innerText = pc;
+      document.getElementById('bar-incorrect').style.width = pi;
+      document.getElementById('value-incorrect').innerText = pi;
       window.requestAnimationFrame(loop);
     }
 
@@ -104,8 +127,10 @@
         webcam.canvas.remove();
         webcam = null;
       }
-      document.getElementById('correct-percent').innerText = 'ต่อวงจรถูก : --%';
-      document.getElementById('incorrect-percent').innerText = 'ต่อวงจรผิด : --%';
+      document.getElementById('bar-correct').style.width = '0';
+      document.getElementById('value-correct').innerText = '--%';
+      document.getElementById('bar-incorrect').style.width = '0';
+      document.getElementById('value-incorrect').innerText = '--%';
     }
 
     document.getElementById('btn-start').addEventListener('click', init);
