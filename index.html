@@ -1,10 +1,10 @@
-<!DOCTYPE html><html lang="th">
+<!DOCTYPE html>
+<html lang="th">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</title>
   <style>
-    /* Reset */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: 100%; height: 100%; overflow: hidden;
@@ -26,22 +26,25 @@
     #webcam-container canvas {
       width: 100%; height: 100%; object-fit: cover;
     }
+    /* Overlay for individual percentages */
     #percentages {
-      flex-shrink: 0;
-      padding: 8px;
-      background: #222;
+      position: fixed;
+      bottom: calc(48px + env(safe-area-inset-bottom));
+      left: 0;
+      width: 100%;
+      background: rgba(0,0,0,0.6);
       color: #fff;
       text-align: center;
-      font-size: 16px;
+      font-size: 14px;
+      padding: 4px 0;
+      z-index: 2;
     }
-    #percentages div {
-      margin: 4px 0;
-    }
+    /* Controls fixed at bottom */
     #controls {
       flex-shrink: 0;
-      position: fixed; bottom: env(safe-area-inset-bottom); left: 0;
+      position: fixed; bottom: 0; left: 0;
       width: 100%; display: flex; justify-content: space-around;
-      background: #f0f0f0; padding: 6px 0; z-index: 2;
+      background: #f0f0f0; padding: 6px 0; z-index: 3;
     }
     #controls button {
       flex: 1; margin: 0 4px; padding: 8px 0;
@@ -54,41 +57,44 @@
 <body>
   <header>ระบบตรวจสอบการต่อวงจรเต้ารับไฟฟ้าและสวิตช์ควบคุมหลอดไฟ</header>
   <div id="webcam-container"></div>
+
   <div id="percentages">
-    <div id="correct-label">ต่อวงจรถูก : --%</div>
-    <div id="incorrect-label">ต่อวงจรผิด : --%</div>
+    <div id="correct-percent">ต่อวงจรถูก : --%<div>
+    <div id="incorrect-percent">ต่อวงจรผิด : --%<div>
   </div>
+
   <div id="controls">
     <button id="btn-start">Start</button>
     <button id="btn-stop">Stop</button>
-  </div>  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>  <script>
+  </div>
+
+  <!-- Load libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <script>
     const URL = './mymodel/';
     let model, webcam;
 
     async function init() {
-      // Reset labels
-      document.getElementById('correct-label').innerText = 'ต่อวงจรถูก : --%';
-      document.getElementById('incorrect-label').innerText = 'ต่อวงจรผิด : --%';
-
-      // Load model
-      model = await tmImage.load(URL + 'model.json', URL + 'metadata.json');
-      // Setup webcam (back camera, no flip)
       webcam = new tmImage.Webcam(window.innerWidth, window.innerHeight, false);
       await webcam.setup({ facingMode: { ideal: 'environment' } });
       await webcam.play();
       document.getElementById('webcam-container').appendChild(webcam.canvas);
-      // Start loop
+
+      model = await tmImage.load(URL + 'model.json', URL + 'metadata.json');
       window.requestAnimationFrame(loop);
     }
 
     async function loop() {
       webcam.update();
       const prediction = await model.predict(webcam.canvas);
-      // Get probabilities
-      const correct = prediction.find(p => p.className === 'ต่อวงจรถูก') || { probability: 0 };
-      const incorrect = prediction.find(p => p.className === 'ต่อวงจรผิด') || { probability: 0 };
-      document.getElementById('correct-label').innerText = `ต่อวงจรถูก : ${(correct.probability * 100).toFixed(1)}%`;
-      document.getElementById('incorrect-label').innerText = `ต่อวงจรผิด : ${(incorrect.probability * 100).toFixed(1)}%`;
+      // Update both percentages
+      const correct = prediction.find(p => p.className === 'ต่อวงจรถูก');
+      const incorrect = prediction.find(p => p.className === 'ต่อวงจรผิด');
+      document.getElementById('correct-percent').innerText =
+        `ต่อวงจรถูก : ${(correct.probability * 100).toFixed(1)}%`;
+      document.getElementById('incorrect-percent').innerText =
+        `ต่อวงจรผิด : ${(incorrect.probability * 100).toFixed(1)}%`;
       window.requestAnimationFrame(loop);
     }
 
@@ -98,9 +104,12 @@
         webcam.canvas.remove();
         webcam = null;
       }
+      document.getElementById('correct-percent').innerText = 'ต่อวงจรถูก : --%';
+      document.getElementById('incorrect-percent').innerText = 'ต่อวงจรผิด : --%';
     }
 
     document.getElementById('btn-start').addEventListener('click', init);
     document.getElementById('btn-stop').addEventListener('click', stopCamera);
-  </script></body>
+  </script>
+</body>
 </html>
